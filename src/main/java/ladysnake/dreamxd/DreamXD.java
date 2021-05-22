@@ -8,13 +8,9 @@ import baritone.api.schematic.ReplaceSchematic;
 import baritone.api.utils.BlockOptionalMeta;
 import baritone.api.utils.BlockOptionalMetaLookup;
 import com.jamieswhiteshirt.reachentityattributes.ReachEntityAttributes;
-import com.mojang.authlib.GameProfile;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
-import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.SkullBlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.effect.StatusEffectInstance;
@@ -22,8 +18,6 @@ import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.CompoundTag;
-import net.minecraft.nbt.NbtHelper;
 import net.minecraft.network.packet.s2c.play.PlayerListS2CPacket;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -32,26 +26,22 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.Hand;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.GameMode;
-import org.apache.commons.lang3.StringUtils;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
-import java.util.UUID;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 public class DreamXD implements ModInitializer {
+    public static final Pattern dreamBad = Pattern.compile("(dream|dreamxd|green teletubby).*(bad|sucks|homeless|dumb|cheated)", Pattern.CASE_INSENSITIVE);
+    public static final Pattern forgive = Pattern.compile("(ha)* *jk *(ha)*", Pattern.CASE_INSENSITIVE);
+    public static final List<String> smpMembersList = new ArrayList<>();
     public static UUID dreamXDUuid;
     public static int tpTimer = new Random().nextInt(20) + 40;
     public static UUID endFramePlayer;
     public static UUID targetPlayer;
-    public static final Pattern dreamBad = Pattern.compile("(dream|dreamxd|green teletubby).*(bad|sucks|homeless|dumb|cheated)", Pattern.CASE_INSENSITIVE);
-    public static final Pattern forgive = Pattern.compile("(ha)* *jk *(ha)*", Pattern.CASE_INSENSITIVE);
     public static Action action = Action.NONE;
-    public static final List<String> smpMembersList = new ArrayList<>();
+    public static int stuckTimer = 25;
 
     public static void isTalkingShit(String message, PlayerEntity playerEntity) {
         Matcher dreamBadMatcher = dreamBad.matcher(message);
@@ -117,6 +107,7 @@ public class DreamXD implements ModInitializer {
                         dreamXDUuid = null;
                         targetPlayer = null;
                         tpTimer = world.random.nextInt(20) + 40;
+                        stuckTimer = 25;
                     } catch (Exception ignored) {
                     }
                 } else {
@@ -158,7 +149,7 @@ public class DreamXD implements ModInitializer {
                             }
                             world.spawnEntity(dreamXD);
                             dreamXD.setGameMode(GameMode.CREATIVE);
-                            dreamXD.getAttributeInstance(ReachEntityAttributes.REACH).setBaseValue(-2);
+//                            dreamXD.getAttributeInstance(ReachEntityAttributes.REACH).setBaseValue(-2);
                             action = Action.GIVING_HEAD;
 
                             PlayerEntity player = playerEntities.get(world.random.nextInt(playerEntities.size()));
@@ -170,42 +161,65 @@ public class DreamXD implements ModInitializer {
                 }
             }
 
+            if (dreamXDUuid != null && action != Action.NONE && world.getEntity(dreamXDUuid) != null) {
+                Entity dream = world.getEntity(dreamXDUuid);
+                if (dream.getX() == dream.prevX && dream.getY() == dream.prevY && dream.getZ() == dream.prevZ) {
+                    stuckTimer--;
+                } else {
+                    stuckTimer = 100;
+                }
+
+                if (stuckTimer <= 0) {
+                    action = Action.NONE;
+                }
+            }
+
             if (action == Action.GIVING_HEAD && dreamXDUuid != null) {
+
+
                 final Entity dreamXD = world.getEntity(dreamXDUuid);
                 if (dreamXD == null) {
                     action = Action.NONE;
                 } else if (world.getPlayerByUuid(targetPlayer) != null) {
+//                    ItemStack head = new ItemStack(Items.PLAYER_HEAD, 64);
+//                    head.getOrCreateTag().putString("SkullOwner", smpMembersList.get(world.getRandom().nextInt(smpMembersList.size())));
+//                    ((FakeServerPlayerEntity) dreamXD).equipStack(EquipmentSlot.HEAD, head);
+
                     PlayerEntity player = world.getPlayerByUuid(targetPlayer);
 
-                    if (tpTimer > 0) {
-                        tpTimer--;
-                    }
+                    tpTimer--;
 
-                    if (tpTimer == 0 && player.isOnGround()) {
-                        world.breakBlock(player.getBlockPos(), true);
-                        String chosenMember = smpMembersList.get(world.getRandom().nextInt(smpMembersList.size()));
-                        ItemStack playerHead = new ItemStack(Items.PLAYER_HEAD, 64);
-                        playerHead.getOrCreateTag().putString("SkullOwner", chosenMember);
-
+                    if (tpTimer == 0) {
                         dreamXD.teleport(player.getX(), player.getY(), player.getZ());
-                        ((FakeServerPlayerEntity) dreamXD).setStackInHand(Hand.MAIN_HAND, playerHead);
-
-                        BlockPos placePos = new BlockPos(player.getX(), player.getY(), player.getZ());
-
-                        ((FakeServerPlayerEntity) dreamXD).getBaritone().getBuilderProcess().build("playerhead", new ReplaceSchematic(new FillSchematic(1, 1, 1, new BlockOptionalMeta(world, Blocks.PLAYER_HEAD)), new BlockOptionalMetaLookup(world, Blocks.AIR)), placePos);
-                        tpTimer = -1;
-                        return;
                     }
 
-                    if (tpTimer == -1 && !((FakeServerPlayerEntity) dreamXD).getBaritone().isActive()) {
-                        action = Action.NONE;
+                    if (tpTimer <= 0 && !((FakeServerPlayerEntity) dreamXD).getBaritone().isActive()) {
+                        BlockPos placePos = dreamXD.getBlockPos().add(world.random.nextGaussian() * 5, world.random.nextGaussian(), world.random.nextGaussian() * 5);
+
+                        if (world.getBlockState(placePos.add(0, -1, 0)).isSolidBlock(world, placePos.add(0, -1, 0)) && world.getBlockState(placePos).isAir()) {
+                            String chosenMember = smpMembersList.get(world.getRandom().nextInt(smpMembersList.size()));
+                            ItemStack playerHead = new ItemStack(Items.PLAYER_HEAD, 64);
+                            playerHead.getOrCreateTag().putString("SkullOwner", chosenMember);
+
+                            ((FakeServerPlayerEntity) dreamXD).setStackInHand(Hand.MAIN_HAND, playerHead);
+
+//                        BlockPos placePos = new BlockPos(player.getX(), player.getY(), player.getZ());
+                            world.setBlockState(placePos, Blocks.AIR.getDefaultState());
+
+                            ((FakeServerPlayerEntity) dreamXD).getBaritone().getBuilderProcess().build("playerhead", new ReplaceSchematic(new FillSchematic(1, 1, 1, new BlockOptionalMeta(world, Blocks.PLAYER_HEAD)), new BlockOptionalMetaLookup(world, Blocks.AIR)), placePos);
+//                        tpTimer = -1;
+                            return;
+                        }
                     }
+
+//                    if (tpTimer == -1 && !((FakeServerPlayerEntity) dreamXD).getBaritone().isActive()) {
+//                        action = Action.NONE;
+//                    }
                 }
             }
 
             if (action == Action.BREAK_PORTAL && dreamXDUuid != null) {
                 final Entity dreamXD = world.getEntity(dreamXDUuid);
-                System.out.println(dreamXD);
                 if (dreamXD == null) {
                     action = Action.NONE;
                 } else if (!((FakeServerPlayerEntity) dreamXD).getBaritone().isActive() && world.getPlayerByUuid(endFramePlayer) != null) {
@@ -261,7 +275,7 @@ public class DreamXD implements ModInitializer {
                                 ((FakeServerPlayerEntity) dreamXD).getBaritone().getFollowProcess().follow(entity -> entity == player);
                             }
                         }
-                    } else if (((FakeServerPlayerEntity) dreamXD).getAttackCooldownProgress(0.5f) >= 1f && world.getPlayerByUuid(targetPlayer) != null && dreamXD.getBlockPos().getManhattanDistance(world.getPlayerByUuid(targetPlayer).getBlockPos()) <= 3) {
+                    } else if (((FakeServerPlayerEntity) dreamXD).getAttackCooldownProgress(0.5f) >= 1f && world.getPlayerByUuid(targetPlayer) != null && dreamXD.getBlockPos().getManhattanDistance(world.getPlayerByUuid(targetPlayer).getBlockPos()) <= 4) {
                         ((FakeServerPlayerEntity) dreamXD).swingHand(Hand.MAIN_HAND);
                         ((FakeServerPlayerEntity) dreamXD).attack(world.getPlayerByUuid(targetPlayer));
 

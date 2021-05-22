@@ -42,7 +42,7 @@ dependencies {
 	// PSA: Some older mods, compiled on Loom 0.2.1, might have outdated Maven POMs.
 	// You may need to force-disable transitiveness on them.
 	modCompileOnly "io.github.ladysnake:automatone:0.+"
-//	modRuntime "io.github.ladysnake:automatone:0.+"
+	modRuntime "io.github.ladysnake:automatone:0.+"
 
 	modImplementation "com.jamieswhiteshirt:reach-entity-attributes:1.1.1"
 }
