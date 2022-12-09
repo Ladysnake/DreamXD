@@ -41,7 +41,7 @@ public class DreamXD implements ModInitializer {
     public static UUID endFramePlayer;
     public static UUID targetPlayer;
     public static Action action = Action.NONE;
-    public static int stuckTimer = 25;
+    public static int stuckTimer = 100;
 
     public static void isTalkingShit(String message, PlayerEntity playerEntity) {
         Matcher dreamBadMatcher = dreamBad.matcher(message);
@@ -107,7 +107,7 @@ public class DreamXD implements ModInitializer {
                         dreamXDUuid = null;
                         targetPlayer = null;
                         tpTimer = world.random.nextInt(20) + 40;
-                        stuckTimer = 25;
+                        stuckTimer = 100;
                     } catch (Exception ignored) {
                     }
                 } else {
@@ -164,7 +164,7 @@ public class DreamXD implements ModInitializer {
             if (dreamXDUuid != null && action != Action.NONE && world.getEntity(dreamXDUuid) != null) {
                 Entity dream = world.getEntity(dreamXDUuid);
                 if (dream.getX() == dream.prevX && dream.getY() == dream.prevY && dream.getZ() == dream.prevZ) {
-                    stuckTimer--;
+                    stuckTimer++;
                 } else {
                     stuckTimer = 100;
                 }
@@ -175,8 +175,6 @@ public class DreamXD implements ModInitializer {
             }
 
             if (action == Action.GIVING_HEAD && dreamXDUuid != null) {
-
-
                 final Entity dreamXD = world.getEntity(dreamXDUuid);
                 if (dreamXD == null) {
                     action = Action.NONE;
